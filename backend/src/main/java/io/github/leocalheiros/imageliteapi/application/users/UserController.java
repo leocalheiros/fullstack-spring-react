@@ -2,6 +2,7 @@ package io.github.leocalheiros.imageliteapi.application.users;
 
 import io.github.leocalheiros.imageliteapi.domain.entity.User;
 import io.github.leocalheiros.imageliteapi.domain.exception.DuplicatedTupleException;
+import io.github.leocalheiros.imageliteapi.domain.exception.NotAuthorizedException;
 import io.github.leocalheiros.imageliteapi.domain.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,12 +20,12 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private UserMapper userMapper;
+    private final UserMapper userMapper;
 
     @PostMapping
     public ResponseEntity save(@RequestBody UserDTO dto){
         try {
-            User user = userMapper.mapTouUser(dto);
+            User user = userMapper.mapToUser(dto);
             userService.save(user);
             return ResponseEntity.status(HttpStatus.CREATED).build();
         }catch (DuplicatedTupleException e){
@@ -35,11 +36,15 @@ public class UserController {
 
     @PostMapping("/auth")
     public ResponseEntity authenticate(@RequestBody CredentialsDTO credentials){
-        var token = userService.authenticate(credentials.getEmail(), credentials.getPassword());
-        if(token == null){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            var token = userService.authenticate(credentials.getEmail(), credentials.getPassword());
+            if (token == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            return ResponseEntity.ok(token);
+        } catch (NotAuthorizedException e) {
+            Map<String, String > jsonResult = Map.of("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(jsonResult);
+            }
         }
-
-        return ResponseEntity.ok(token);
     }
-}
